@@ -1,0 +1,9 @@
+tensorflow==2.14.1
+tensorflow-addons==0.22.0
+tensorflow-compression==2.14.0
+tensorflow-probability==0.22.1
+opencv-python
+tqdm
+pillow
+wandb
+
