@@ -1,0 +1,6 @@
+film/ckpt/
+wandb/
+vct/ckpt/
+vfi/ckpt/
+vfi/src/__pycache__/
+vct/src/__pycache__/
