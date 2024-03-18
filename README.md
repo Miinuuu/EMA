@@ -16,5 +16,3 @@ EMA is trained on a proprietary dataset with one million internet video clips, e
 
 - We use the publcicly available Vimeo-90k dataset ([Xue et al., 2019](https://arxiv.org/abs/1711.09078)), which is commonly used dataset for video frame interpolation
 
-
-# Reproducing EMA in Tensorflow
