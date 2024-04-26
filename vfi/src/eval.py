@@ -32,9 +32,9 @@ run = wandb.init(project='vfi_eval')
 parser = argparse.ArgumentParser()
 parser.add_argument('--batch_size' , default=64, type = int, help= 'batch size')
 parser.add_argument('--num_epoch' , default=300 , type = int, help= 'num_epoch')
-parser.add_argument('--resume' , default='/home/jmw/ing/myfi/vfi/ckpt' , type = str, help= 'resume')
+parser.add_argument('--resume' , default='/home/jmw/backup/ema_tf/vfi/ckpt' , type = str, help= 'resume')
 #parser.add_argument('--resume' , default=None , type = str, help= 'resume path')
-parser.add_argument('--write_ckpt_dir' , default='/home/jmw/ing/myfi/vfi/ckpt' , type = str, help= 'ckpt directory path')
+parser.add_argument('--write_ckpt_dir' , default='/home/jmw/backup/ema_tf/vfi/ckpt' , type = str, help= 'ckpt directory path')
 args= parser.parse_args()
 
 feature_extractor_cfg, flow_estimation_cfg = config.MODEL_CONFIG['MODEL_ARCH']
@@ -64,7 +64,7 @@ class ModelsTest(tf.test.TestCase):
         psnr.append(metrics['psnr'].numpy())
         mse.append(metrics['mse'].numpy())
 
-        run.Image( np.round(pred.numpy()*255))
+        #run.Image( np.round(pred.numpy()*255))
         run.log({ "PSNR" : metrics['psnr'].numpy(), 'LOSS' : metrics['loss'].numpy() ,'MSE':metrics['mse'].numpy() })
     psnr=np.mean(psnr)
     loss=np.mean(loss)

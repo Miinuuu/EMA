@@ -6,4 +6,3 @@ opencv-python
 tqdm
 pillow
 wandb
-
