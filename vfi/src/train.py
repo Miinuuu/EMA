@@ -67,6 +67,7 @@ class ModelsTest(tf.test.TestCase):
         mse.append(metrics['mse'].numpy())
 
       print("Avg PSNR: {} loss: {}  MSE {}  ".format(np.mean(psnr), np.mean(loss), np.mean(mse)))
+      run.log({ 'val_psnr' :np.mean(psnr) ,})
 
 
 
