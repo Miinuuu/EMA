@@ -123,22 +123,22 @@ class Model(tf.Module):
         #self._optimizer, self._learning_rate_schedule = (_make_optimizer_and_lr_schedule(schedules_num_steps))
 
 
-        self.learning_rate_schedule = tf.keras.optimizers.schedules.ExponentialDecay(
+        '''self.learning_rate_schedule = tf.keras.optimizers.schedules.ExponentialDecay(
                                                     initial_learning_rate = 0.0001,
                                                     decay_steps = 750000,
                                                     decay_rate = 0.464158,
                                                     staircase = True)
-        self._optimizer = tf.keras.optimizers.Adam(learning_rate= self.learning_rate_schedule)
+        self._optimizer = tf.keras.optimizers.Adam(learning_rate= self.learning_rate_schedule)'''
 
 
 
-        '''self.learning_rate_schedule = tf.keras.experimental.CosineDecay(initial_learning_rate=2e-4, decay_steps=750000)
+        self.learning_rate_schedule = tf.keras.experimental.CosineDecay(initial_learning_rate=2e-4, decay_steps=750000)
 
         self._optimizer = tfa_optimizers.AdamW(
             learning_rate=self.learning_rate_schedule,
             weight_decay=1e-4,
             global_clipnorm=1.0,
-            epsilon=1e-9)'''
+            epsilon=1e-9)
 
     def warp_features(self, af, flow):
         y0 = []
