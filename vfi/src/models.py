@@ -69,6 +69,9 @@ class _WrapAsWeightDecaySchedule(LearningRateSchedule):
 
   def __call__(self, step):
     return self._weight_decay * self._lr_schedule(step)
+  
+
+
 def _make_optimizer_and_lr_schedule(
     schedules_num_steps,
     weight_decay = 0.03,
@@ -100,7 +103,7 @@ from vfi.src import config
 feature_extractor_cfg, flow_estimation_cfg = config.MODEL_CONFIG['MODEL_ARCH']
 
 class Model(tf.Module):
-    def __init__(self, schedules_num_steps=750_000, **kargs) :
+    def __init__(self, **kargs) :
         super(Model, self).__init__()
         self.flow_num_stage = len(kargs['hidden_dims']) #2
         self.feature_estimation = modules.feature_extractor(**feature_extractor_cfg)
@@ -113,12 +116,29 @@ class Model(tf.Module):
         self.refine = refine.refine(kargs['c'] * 2)
 
         self._all_trainable_variables = None
-        #self.learning_rate_schedule = tf.keras.optimizers.schedules.ExponentialDecay(
-        #    initial_learning_rate=.0001, decay_steps=750000, decay_rate=0.464158)
+        #self.learning_rate_schedule = tf.keras.optimizers.schedules.ExponentialDecay( initial_learning_rate=.0001, decay_steps=750000, decay_rate=0.464158)
         #self.learning_rate_schedule = tf.keras.experimental.CosineDecay(initial_learning_rate=0.0001, decay_steps=750000)
         #self.optimizer = tf.keras.optimizers.Adam(learning_rate= self.learning_rate_schedule)
         #self.optimizer = tfa_optimizers.AdamW(learning_rate= self.learning_rate_schedule,weight_decay=0.0001)
-        self._optimizer, self._learning_rate_schedule = (_make_optimizer_and_lr_schedule(schedules_num_steps))
+        #self._optimizer, self._learning_rate_schedule = (_make_optimizer_and_lr_schedule(schedules_num_steps))
+
+
+        self.learning_rate_schedule = tf.keras.optimizers.schedules.ExponentialDecay(
+                                                    initial_learning_rate = 0.0001,
+                                                    decay_steps = 750000,
+                                                    decay_rate = 0.464158,
+                                                    staircase = True)
+        self._optimizer = tf.keras.optimizers.Adam(learning_rate= self.learning_rate_schedule)
+
+
+
+        '''self.learning_rate_schedule = tf.keras.experimental.CosineDecay(initial_learning_rate=2e-4, decay_steps=750000)
+
+        self._optimizer = tfa_optimizers.AdamW(
+            learning_rate=self.learning_rate_schedule,
+            weight_decay=1e-4,
+            global_clipnorm=1.0,
+            epsilon=1e-9)'''
 
     def warp_features(self, af, flow):
         y0 = []

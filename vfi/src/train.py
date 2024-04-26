@@ -26,15 +26,14 @@ import wandb as wandb
 from wandb.keras import WandbCallback
 import numpy as np
 import os
-os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 wandb.login()
-run = wandb.init(project='vfi')
+run = wandb.init(project='vfi_ema')
 parser = argparse.ArgumentParser()
-parser.add_argument('--batch_size' , default=32, type = int, help= 'batch size')
+parser.add_argument('--batch_size' , default=64, type = int, help= 'batch size')
 parser.add_argument('--num_epoch' , default=300 , type = int, help= 'num_epoch')
-parser.add_argument('--resume' , default='/home/jmw/ing/myfi/vfi/ckpt' , type = str, help= 'resume')
-#parser.add_argument('--resume' , default=None , type = str, help= 'resume path')
-parser.add_argument('--write_ckpt_dir' , default='/home/jmw/ing/myfi/vfi/ckpt' , type = str, help= 'ckpt directory path')
+#parser.add_argument('--resume' , default='/home/jmw/backup/ema_tf/vfi/ckpt' , type = str, help= 'resume')
+parser.add_argument('--resume' , default=None , type = str, help= 'resume path')
+parser.add_argument('--write_ckpt_dir' , default='/home/jmw/backup/EMA/vfi/ckpt' , type = str, help= 'ckpt directory path')
 args= parser.parse_args()
 
 feature_extractor_cfg, flow_estimation_cfg = config.MODEL_CONFIG['MODEL_ARCH']
@@ -112,7 +111,7 @@ class ModelsTest(tf.test.TestCase):
         if tf.equal(epoch % 1, 0):
           ckpt_p = model.write_ckpt(args.write_ckpt_dir, step=epoch)
           print(ckpt_p)
-    self._restore_evaluate(ckpt_p)
+          self._restore_evaluate(ckpt_p)
     run.finish()
 
 if __name__ == "__main__":

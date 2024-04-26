@@ -15,13 +15,13 @@ def conv( out_planes, kernel_size=3, stride=1, padding='same', dilation=1):
                                                 strides=stride
                                                 ),
 
-        tf.keras.layers.ReLU()]
+        tf.keras.layers.LeakyReLU(0.25)]
     )
 
 def deconv( out_planes, kernel_size=4, stride=2, padding='same'):
     return keras.Sequential([
         tf.keras.layers.Conv2DTranspose(filters=out_planes, kernel_size=4, strides=2, padding='same', use_bias=True),
-         tf.keras.layers.ReLU()]
+         tf.keras.layers.LeakyReLU(0.25)]
         )
             
 class Conv2D(layers.Layer):

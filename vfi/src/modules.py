@@ -401,7 +401,7 @@ class MotionFormerBlock(layers.Layer):
 
 
 class ConvBlock(layers.Layer):
-    def __init__(self, in_dim, out_dim, depths=2,act_layer=keras.layers.ReLU()):
+    def __init__(self, in_dim, out_dim, depths=2,act_layer=keras.layers.LeakyReLU(0.25)):
         super().__init__()
         self.layers = keras.Sequential()
 
@@ -411,7 +411,7 @@ class ConvBlock(layers.Layer):
             else:
                 self.layers.add(keras.layers.Conv2D( filters=out_dim, kernel_size=3,strides= 1,padding='same' ))
 
-            self.layers.add( keras.layers.ReLU())
+            self.layers.add( keras.layers.LeakyReLU(0.25))
 
     def call(self, x):
         x = self.layers(x)
@@ -470,7 +470,7 @@ def conv( out_planes, kernel_size=3, stride=1, padding='same', dilation=1):
                                                 strides=stride
                                                 ),
 
-        tf.keras.layers.ReLU()]
+        tf.keras.layers.LeakyReLU(0.25)]
     )
 
 
