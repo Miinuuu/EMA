@@ -14,6 +14,7 @@
 # limitations under the License.
 
 """Tests for models."""
+import re
 
 import functools
 import tensorflow as tf
@@ -27,11 +28,11 @@ from wandb.keras import WandbCallback
 import numpy as np
 import os
 wandb.login()
-run = wandb.init(project='vfi_ema')
+run = wandb.init(project='VFI')
 parser = argparse.ArgumentParser()
-parser.add_argument('--batch_size' , default=32, type = int, help= 'batch size')
+parser.add_argument('--batch_size' , default=96, type = int, help= 'batch size')
 parser.add_argument('--num_epoch' , default=300 , type = int, help= 'num_epoch')
-#parser.add_argument('--resume' , default='/home/jmw/backup/ema_tf/vfi/ckpt' , type = str, help= 'resume')
+#parser.add_argument('--resume' , default='vfi/ckpt' , type = str, help= 'resume')
 parser.add_argument('--resume' , default=None , type = str, help= 'resume path')
 parser.add_argument('--write_ckpt_dir' , default='vfi/ckpt' , type = str, help= 'ckpt directory path')
 args= parser.parse_args()
@@ -63,11 +64,11 @@ class ModelsTest(tf.test.TestCase):
         _, metrics = test_step(img0,gt,img1,0.5)
 
         loss.append(metrics['loss'].numpy())
-        psnr.append(metrics['psnr'].numpy())
+        psnr.append(metrics['PSNR'].numpy())
         mse.append(metrics['mse'].numpy())
 
       print("Avg PSNR: {} loss: {}  MSE {}  ".format(np.mean(psnr), np.mean(loss), np.mean(mse)))
-      run.log({ 'val_psnr' :np.mean(psnr)})
+      run.log({ 'val_PSNR' :np.mean(psnr)})
 
 
 
@@ -93,12 +94,13 @@ class ModelsTest(tf.test.TestCase):
     train_step = tf.function(model.train_step)
 
     if args.resume != None :
-      print('resume',args.resume)
-   
-      ckpt_p= args.resume
-      model.load_ckpt(path=args.resume)
-
-    for epoch in (range(args.num_epoch)):
+        print('resume',args.resume)
+        ckpt_p= args.resume
+        _,start=model.load_ckpt(path=args.resume)
+    else:
+        start=0
+    for epoch in range(start, args.num_epoch):
+    #for epoch in (range(start,args.num_epoch)):
       with tqdm(train_loader , unit ='batch' ) as tepoch :
         for img0,gt,img1 in (tepoch):
           img0 = tf.cast(img0/255.0, dtype=tf.float32)
@@ -106,9 +108,9 @@ class ModelsTest(tf.test.TestCase):
           img1 = tf.cast(img1/255.0, dtype=tf.float32)
 
           metrics=train_step(img0,gt,img1)
-          tepoch.set_postfix(epoch=epoch,psnr=metrics['psnr'].numpy() , loss =metrics['loss'].numpy() ,mse =metrics['mse'].numpy()  )
+          tepoch.set_postfix(epoch=epoch,PSNR=metrics['PSNR'].numpy() , loss =metrics['loss'].numpy() ,mse =metrics['mse'].numpy(),lr= metrics['lr'].numpy() )
           run.log(metrics)
-            
+
         if tf.equal(epoch % 1, 0):
           ckpt_p = model.write_ckpt(args.write_ckpt_dir, step=epoch)
           print(ckpt_p)

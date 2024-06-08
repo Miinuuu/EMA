@@ -30,7 +30,7 @@ MODEL_CONFIG = {
     'LOGNAME': 'ifa',
     'MODEL_ARCH': init_model_config(
         F = 16,
-        W = [8,8],
+        W = [7,7],
         depth = [2,2,2,2,2]
     )
 }

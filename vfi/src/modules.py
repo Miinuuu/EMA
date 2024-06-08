@@ -397,6 +397,150 @@ class MotionFormerBlock(layers.Layer):
         x = x + self.drop_path(self.mlp(self.norm2(x), H, W))
   
         return x,x_motion
+
+
+class MotionFormerBlock_(layers.Layer):
+
+    def __init__(
+        self,
+        dim, 
+        motion_dim, 
+        num_heads, 
+        window_size=8, 
+        shift_size=0, 
+        mlp_ratio=4., 
+        qkv_bias=False, 
+        dropout_rate=0., 
+        attn_drop=0.,
+        drop_path=0.,
+        ):
+
+        super().__init__()
+        
+        self.window_size = window_size  # size of window        
+        self.shift_size = shift_size  # size of window shift
+
+        self.norm1 = layers.LayerNormalization(epsilon=1e-5,axis=-1)
+        
+        
+        self.attn = InterFrameAttention(
+                                        dim,
+                                        motion_dim, 
+                                        window_size=self.window_size,
+                                        num_heads=num_heads, 
+                                        qkv_bias=qkv_bias, 
+                                        proj_drop=dropout_rate,
+                                        attn_drop=attn_drop )
+
+
+
+        #self.drop_path =  DropPath(drop_path) 
+        self.drop_path =  DropPath(drop_path) if drop_path > 0. else tf.identity
+        self.norm2 = layers.LayerNormalization(epsilon=1e-5,axis=-1)
+        mlp_hidden_dim = int(dim * mlp_ratio)
+        self.mlp = Mlp(in_features=dim, hidden_features=mlp_hidden_dim, act_layer= layers.Activation(keras.activations.gelu), dropout_rate=dropout_rate)
+
+
+
+    def call(self, x,cor,H,W,B):
+        shortcut=x
+        x=self.norm1(x)
+        x = tf.reshape(x, shape=(B, H, W, -1))
+
+        x_pad, mask = pad_if_needed(x,  self.window_size)
+        cor_pad, _ = pad_if_needed(cor, self.window_size)
+
+        if self.shift_size > 0: 
+            _, H_p, W_p, C = x_pad.shape
+
+            x_pad = tf.roll(
+                x_pad, shift=[-self.shift_size, -self.shift_size], axis=[1, 2]
+            )
+            cor_pad = tf.roll(
+                cor_pad, shift=[-self.shift_size, -self.shift_size], axis=[1, 2]
+            )
+            
+  
+            shift_mask = np.zeros((1, H_p, W_p, 1))  # 1 H W 1
+            #shift_mask =tf.Variable(tf.zeros([1, H_p, W_p, 1], tf.float32), trainable=False)
+            #shift_mask =tf.experimental.numpy.zeros([1, H_p, W_p, 1], tf.float32)
+
+            h_slices = (slice(0, -self.window_size),
+                        slice(-self.window_size, -self.shift_size),
+                        slice(-self.shift_size, None))
+            w_slices = (slice(0, -self.window_size),
+                        slice(-self.window_size, -self.shift_size),
+                        slice(-self.shift_size, None))
+            cnt = 0
+            for h in h_slices:
+                for w in w_slices:
+                    shift_mask[:, h, w, :]=(cnt) 
+                    cnt += 1
+            shift_mask = tf.convert_to_tensor(shift_mask,dtype=tf.float32)
+
+            mask_windows = window_partition(shift_mask, self.window_size)
+            mask_windows = tf.reshape(
+                mask_windows, shape=[-1, self.window_size * self.window_size]
+            )
+
+            shift_mask =tf.expand_dims(mask_windows, axis=1) - tf.expand_dims(
+                mask_windows, axis=2
+            )
+
+            shift_mask = tf.where(shift_mask != 0, -100.0, shift_mask)
+            shift_mask = tf.where(shift_mask == 0, 0.0, shift_mask)
+
+            if mask is not None:
+                shift_mask = tf.where(mask != 0, -100.0, shift_mask)
+        else: 
+            shift_mask = mask
+
+
+        _, Hw, Ww, _ = x_pad.shape #2 ,60,120,128
+
+        
+        x_win = window_partition(x_pad, self.window_size)
+        nwB = x_win.shape[0] 
+        x_win = tf.reshape(
+            x_win, shape=(nwB, self.window_size * self.window_size, -1)
+        )
+        cor_win = window_partition(cor_pad, self.window_size)
+        cor_win = tf.reshape(
+            cor_win, shape=(nwB, self.window_size * self.window_size, -1)
+        )
+
+        #x_norm = self.norm1(x_win)
+
+        x_reverse = tf.concat([x_win[nwB//2:], x_win[:nwB//2] ],0) # 배치순서반대 frame t-1. frame t+1 반대로  interframe attention을 위해서  {f1,f0}
+        x_appearence, x_motion = self.attn(x_win, x_reverse,cor_win, mask=shift_mask) #BNC
+        
+        
+        #x_norm = x_norm + self.drop_path(x_appearence)
+        
+        
+        '''x_norm = tf.reshape(
+            x_norm, shape=(nwB, self.window_size, self.window_size, -1)
+        )
+        x_motion = tf.reshape(
+            x_motion, shape=(nwB, self.window_size, self.window_size, -1)
+        )'''
+
+        x_back_win = window_reverse(x_appearence, self.window_size ,Hw,Ww)
+        x_motion = window_reverse(x_motion, self.window_size, Hw, Ww)
+
+        if self.shift_size > 0 :
+            x_back_win = tf.roll(x_back_win, shift=[self.shift_size, self.shift_size ], axis=[1, 2])
+            x_motion = tf.roll(x_motion, shift=[self.shift_size , self.shift_size ], axis=[1, 2])
+     
+        x_appearence = depad_if_needed(x_back_win, x.shape, self.window_size)
+        x_motion = depad_if_needed(x_motion, cor.shape, self.window_size)
+        x_motion = tf.reshape(x_motion, shape=(B, H * W, -1))
+
+        x_appearence = tf.reshape(x_appearence, shape=(B, H * W, -1))
+        x = shortcut + self.drop_path(x_appearence)
+        x = x + self.drop_path(self.mlp(self.norm2(x), H, W))
+  
+        return x,x_motion
     
 
 
@@ -570,7 +714,7 @@ class feature_extractor(layers.Layer):
 
                     block =             (
                                             
-                                            [ MotionFormerBlock(
+                                            [ MotionFormerBlock_(
                                                 dim=embed_dims[i], 
                                                 motion_dim=motion_dims[i], 
                                                 num_heads=num_heads[i-self.conv_stages], 

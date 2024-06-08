@@ -9,6 +9,8 @@ from vfi.src import laploss
 from vfi.src import modules
 from vfi.src import schedule 
 from vfi.src import refine
+import re    
+
 def _mse_psnr(original, reconstruction,training):
   """Calculates mse and PSNR.
 
@@ -130,15 +132,22 @@ class Model(tf.Module):
                                                     staircase = True)
         self._optimizer = tf.keras.optimizers.Adam(learning_rate= self.learning_rate_schedule)'''
 
+        #self._optimizer, self._learning_rate_schedule = (_make_optimizer_and_lr_schedule(750000))
 
 
-        self.learning_rate_schedule = tf.keras.experimental.CosineDecay(initial_learning_rate=2e-4, decay_steps=750000)
+        self.learning_rate_schedule = tf.keras.optimizers.schedules.CosineDecay(
+                                                                        initial_learning_rate=1e-7,
+                                                                        warmup_target=2e-4,
+                                                                        warmup_steps=2000,
+                                                                        decay_steps=535*100,
+                                                                        alpha=2e-5)
 
         self._optimizer = tfa_optimizers.AdamW(
             learning_rate=self.learning_rate_schedule,
             weight_decay=1e-4,
             global_clipnorm=1.0,
             epsilon=1e-9)
+        
 
     def warp_features(self, af, flow):
         y0 = []
@@ -216,22 +225,30 @@ class Model(tf.Module):
         var_list = self.all_trainable_variables
         gradients = tape.gradient ( loss, var_list)
         self._optimizer.apply_gradients(zip(gradients,var_list))
-
+        current_learning_rate = self.learning_rate_schedule(self._optimizer.iterations)
+        metric.update({'lr':current_learning_rate}) 
         return metric
+    
     def write_ckpt(self, path, step):
         """Creates a checkpoint at `path` for `step`."""
-        print('Creates a checkpoint at'+ str(path) + 'for' + str(step))
+        print('Creates a checkpoint at '+ str(path) + 'for' + str(step))
         ckpt = tf.train.Checkpoint(model=self)
         manager = tf.train.CheckpointManager(ckpt, path, max_to_keep=3)
         manager.save(checkpoint_number=step)
         return tf.train.latest_checkpoint(path)
-        
     def load_ckpt(self, path):
         """load a checkpoint at `path` for `step`."""
         ckpt = tf.train.Checkpoint(model=self)
+
         manager = tf.train.CheckpointManager(ckpt, path, max_to_keep=3)
-        print('load a checkpoint at'+ str(path) + 'for' + manager.latest_checkpoint)
-        return ckpt.restore(manager.latest_checkpoint).assert_existing_objects_matched()
+        match = re.search(r"ckpt-(\d+)", manager.latest_checkpoint)
+        if match:
+            restored_epoch = int(match.group(1))
+            print(f"Restored from checkpoint at epoch {restored_epoch}")
+        print('load a checkpoint at'+ str(path) + 'for' + manager.latest_checkpoint)    
+        temp= ckpt.restore(manager.latest_checkpoint).assert_existing_objects_matched()
+        return temp,restored_epoch
+
     @property
     def global_step(self):
         """Returns the global step variable."""
@@ -291,7 +308,7 @@ class Model(tf.Module):
             loss_l1 += tf.reduce_mean(laploss.laploss(merge, gt)) * 0.5
             #loss_l1 += tf.reduce_mean(tf.abs(merge-gt)) * 0.5
         mse,psnr = _mse_psnr(gt,pred,False)
-        metric={'loss' : loss_l1 , 'psnr' : psnr , 'mse':mse }     
+        metric={'loss' : loss_l1 , 'PSNR' : psnr , 'mse':mse }     
         #return flow_list, mask_list, merged, pred
     
         return pred, metric 
